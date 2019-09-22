@@ -37,6 +37,7 @@ import {EventTimeline} from "matrix-js-sdk";
 import AutoHideScrollbar from "../../structures/AutoHideScrollbar";
 import * as RoomViewStore from "../../../stores/RoomViewStore";
 import MultiInviter from "../../../utils/MultiInviter";
+import GroupStore from "../../../stores/GroupStore";
 
 const _disambiguateDevices = (devices) => {
     const names = Object.create(null);
@@ -341,7 +342,9 @@ const GenericAdminToolsContainer = ({children}) => {
     return (
         <div className="mx_MemberInfo_container">
             <h3>{ _t("Admin Tools") }</h3>
-            { children }
+            <div className="mx_MemberInfo_buttons">
+                { children }
+            </div>
         </div>
     );
 };
@@ -648,10 +651,92 @@ const RoomAdminToolsContainer = ({cli, children, roomCan, member, startUpdating,
     return <div />;
 };
 
+const GroupAdminToolsSection = ({cli, children, groupId, groupMember, startUpdating, stopUpdating}) => {
+    const [isPrivileged, setIsPrivileged] = useState(false);
+    const [isInvited, setIsInvited] = useState(false);
+
+    // Listen to group store changes
+    useEffect(() => {
+        let unmounted = false;
+
+        const onGroupStoreUpdated = () => {
+            if (!unmounted) return;
+            setIsPrivileged(GroupStore.isUserPrivileged(groupId));
+            setIsInvited(GroupStore.getGroupInvitedMembers(groupId).some(
+                (m) => m.userId === groupMember.userId,
+            ));
+        };
+
+        GroupStore.registerListener(groupId, onGroupStoreUpdated);
+        onGroupStoreUpdated();
+        // Handle unmount
+        return () => {
+            unmounted = true;
+            GroupStore.unregisterListener(onGroupStoreUpdated);
+        };
+    }, [groupId]);
+
+    if (isPrivileged) {
+        const _onKick = async () => {
+            const ConfirmUserActionDialog = sdk.getComponent("dialogs.ConfirmUserActionDialog");
+            const {finished} = Modal.createDialog(ConfirmUserActionDialog, {
+                matrixClient: cli,
+                groupMember,
+                action: isInvited ? _t('Disinvite') : _t('Remove from community'),
+                title: isInvited ? _t('Disinvite this user from community?')
+                    : _t('Remove this user from community?'),
+                danger: true,
+            });
+
+            const [proceed] = await finished;
+            if (!proceed) return;
+
+            startUpdating();
+            cli.removeUserFromGroup(groupId, groupMember.userId).then(() => {
+                // return to the user list
+                dis.dispatch({
+                    action: "view_user",
+                    member: null,
+                });
+            }).catch((e) => {
+                const ErrorDialog = sdk.getComponent("dialogs.ErrorDialog");
+                Modal.createTrackedDialog('Failed to remove user from group', '', ErrorDialog, {
+                    title: _t('Error'),
+                    description: isInvited ?
+                        _t('Failed to withdraw invitation') :
+                        _t('Failed to remove user from community'),
+                });
+            }).finally(() => {
+                stopUpdating();
+            });
+        };
+
+        const kickButton = (
+            <AccessibleButton className="mx_MemberInfo_field" onClick={_onKick}>
+                { isInvited ? _t('Disinvite') : _t('Remove from community') }
+            </AccessibleButton>
+        );
+
+        // No make/revoke admin API yet
+        /*const opLabel = this.state.isTargetMod ? _t("Revoke Moderator") : _t("Make Moderator");
+        giveModButton = <AccessibleButton className="mx_MemberInfo_field" onClick={this.onModToggle}>
+            {giveOpLabel}
+        </AccessibleButton>;*/
+
+        return <GenericAdminToolsContainer>
+            { kickButton }
+            { children }
+        </GenericAdminToolsContainer>;
+    }
+
+    return <div />;
+};
+
 const GroupMember = PropTypes.shape({
     userId: PropTypes.string.isRequired,
     displayname: PropTypes.string, // XXX: GroupMember objects are inconsistent :((
     avatarUrl: PropTypes.string,
+    isPrivileged: PropTypes.bool,
 });
 
 export default class UserInfo extends React.PureComponent {
@@ -860,7 +945,15 @@ export default class UserInfo extends React.PureComponent {
 
         const [accepted] = await finished;
         if (!accepted) return;
-        this.context.matrixClient.deactivateSynapseUser(this.props.user.userId);
+        try {
+            this.context.matrixClient.deactivateSynapseUser(this.props.user.userId);
+        } catch (err) {
+            const ErrorDialog = sdk.getComponent('dialogs.ErrorDialog');
+            Modal.createTrackedDialog('Failed to deactivate user', '', ErrorDialog, {
+                title: _t('Failed to deactivate user'),
+                description: ((err && err.message) ? err.message : _t("Operation failed")),
+            });
+        }
     };
 
     startUpdating = async () => {
@@ -1070,6 +1163,17 @@ export default class UserInfo extends React.PureComponent {
                     { synapseDeactivateButton }
                 </RoomAdminToolsContainer>
             );
+        } else if (this.props.groupId) {
+            adminToolsContainer = (
+                <GroupAdminToolsSection
+                    cli={cli}
+                    groupId={this.props.groupId}
+                    groupMember={user}
+                    startUpdating={this.startUpdating}
+                    stopUpdating={this.stopUpdating}>
+                    { synapseDeactivateButton }
+                </GroupAdminToolsSection>
+            )
         } else if (synapseDeactivateButton) {
             adminToolsContainer = (
                 <GenericAdminToolsContainer>
@@ -1212,11 +1316,11 @@ export default class UserInfo extends React.PureComponent {
                     </div>
                 </div>
 
-                <div className="mx_MemberInfo_container mx_MemberInfo_memberDetailsContainer">
+                { memberDetails && <div className="mx_MemberInfo_container mx_MemberInfo_memberDetailsContainer">
                     <div className="mx_MemberInfo_memberDetails">
                         { memberDetails }
                     </div>
-                </div>
+                </div> }
 
                 <AutoHideScrollbar className="mx_MemberInfo_scrollContainer">
                     { devicesContainer }
