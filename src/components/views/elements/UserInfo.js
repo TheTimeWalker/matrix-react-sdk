@@ -767,9 +767,18 @@ export default class UserInfo extends React.PureComponent {
     // }
 
     async _checkSynapseAbilities() {
+        let deactivate = false;
+        if (this.context.matrixClient) {
+            try {
+                deactivate = await this.context.matrixClient.isSynapseAdministrator();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
         this.setState({
             synapseCan: {
-                deactivate: await this.context.matrixClient.isSynapseAdministrator(),
+                deactivate,
             },
         });
     }
