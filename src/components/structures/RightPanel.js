@@ -164,13 +164,12 @@ export default class RightPanel extends React.Component {
 
     render() {
         const MemberList = sdk.getComponent('rooms.MemberList');
-        const MemberInfo = sdk.getComponent('rooms.MemberInfo');
+        const UserInfo = sdk.getComponent('elements.UserInfo');
         const ThirdPartyMemberInfo = sdk.getComponent('rooms.ThirdPartyMemberInfo');
         const NotificationPanel = sdk.getComponent('structures.NotificationPanel');
         const FilePanel = sdk.getComponent('structures.FilePanel');
 
         const GroupMemberList = sdk.getComponent('groups.GroupMemberList');
-        const GroupMemberInfo = sdk.getComponent('groups.GroupMemberInfo');
         const GroupRoomList = sdk.getComponent('groups.GroupRoomList');
         const GroupRoomInfo = sdk.getComponent('groups.GroupRoomInfo');
 
@@ -183,14 +182,32 @@ export default class RightPanel extends React.Component {
         } else if (this.state.phase === RightPanel.Phase.GroupRoomList) {
             panel = <GroupRoomList groupId={this.props.groupId} key={this.props.groupId} />;
         } else if (this.state.phase === RightPanel.Phase.RoomMemberInfo) {
-            panel = <MemberInfo member={this.state.member} key={this.props.roomId || this.state.member.userId} />;
+            const onClose = () => {
+                dis.dispatch({
+                    action: "view_user",
+                    member: null,
+                });
+            };
+            panel = <UserInfo
+                user={this.state.member}
+                room={this.context.matrixClient.getRoom(this.props.roomId)}
+                key={this.props.roomId || this.state.member.userId}
+                onClose={onClose}
+            />;
         } else if (this.state.phase === RightPanel.Phase.Room3pidMemberInfo) {
             panel = <ThirdPartyMemberInfo event={this.state.event} key={this.props.roomId} />;
         } else if (this.state.phase === RightPanel.Phase.GroupMemberInfo) {
-            panel = <GroupMemberInfo
-                groupMember={this.state.member}
+            const onClose = () => {
+                dis.dispatch({
+                    action: "view_user",
+                    member: null,
+                });
+            };
+            panel = <UserInfo
+                user={this.state.member}
                 groupId={this.props.groupId}
-                key={this.state.member.user_id} />;
+                key={this.state.member.userId}
+                onClose={onClose} />;
         } else if (this.state.phase === RightPanel.Phase.GroupRoomInfo) {
             panel = <GroupRoomInfo
                 groupRoomId={this.state.groupRoomId}

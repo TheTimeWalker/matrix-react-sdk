@@ -48,13 +48,18 @@ limitations under the License.
 }
 
 .mx_MemberInfo h2 {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
-    margin: 16px 0 16px 15px;
+    margin: 16px 0 8px 0;
 }
 
 .mx_MemberInfo_container {
-    margin: 0 16px 16px 16px;
+    padding: 0 16px 16px 16px;
+    border-bottom: 1px solid lightgray;
+}
+
+.mx_MemberInfo_memberDetailsContainer {
+    padding-bottom: 0;
 }
 
 .mx_MemberInfo .mx_RoomTile_nameContainer {
@@ -71,7 +76,6 @@ limitations under the License.
 
 .mx_MemberInfo_avatar {
     background: $tagpanel-bg-color;
-    margin-bottom: 16px;
 }
 
 .mx_MemberInfo_avatar > img {
@@ -86,10 +90,6 @@ limitations under the License.
     cursor: zoom-in;
 }
 
-.mx_MemberInfo_profile {
-    margin-bottom: 16px;
-}
-
 .mx_MemberInfo h3 {
     text-transform: uppercase;
     color: $input-darker-fg-color;
@@ -101,6 +101,11 @@ limitations under the License.
 .mx_MemberInfo_profileField {
     font-size: 15px;
     position: relative;
+    text-align: center;
+}
+
+.mx_MemberInfo_memberDetails {
+    text-align: center;
 }
 
 .mx_MemberInfo_buttons {
@@ -153,3 +158,39 @@ limitations under the License.
 .mx_MemberInfo .mx_MemberInfo_scrollContainer {
     flex: 1;
 }
+
+.mx_MemberInfo .mx_MemberInfo_scrollContainer .mx_MemberInfo_container {
+    padding-top: 16px;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.mx_MemberInfo_direct_messages {
+    display: flex;
+}
+
+.mx_MemberInfo_direct_messages .mx_AccessibleButton {
+    background-color: $roomheader-addroom-bg-color;
+    border-radius: 10px; // 16/2 + 2 padding
+    height: 16px;
+    flex: 0 0 16px;
+    position: relative;
+    margin-left: auto;
+
+    &::before {
+        background-color: $roomheader-addroom-fg-color;
+        mask: url('$(res)/img/icons-room-add.svg');
+        mask-repeat: no-repeat;
+        mask-position: center;
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+    }
+}
+
+//.mx_MemberInfo_addDM_bottom {
+//    clear: both;
+//}
