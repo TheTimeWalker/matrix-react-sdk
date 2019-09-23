@@ -17,9 +17,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import React, {useState, useEffect} from 'react';
+import React, {useCallback, useState, useEffect} from 'react';
 import PropTypes from 'prop-types';
 import classNames from 'classnames';
+import useEventListener from '@use-it/event-listener';
 import {Group, MatrixClient, Room, RoomMember, User} from 'matrix-js-sdk';
 import dis from '../../../dispatcher';
 import Modal from '../../../Modal';
@@ -147,12 +148,20 @@ const onRoomTileClick = (roomId) => {
 
 const DirectChatsSection = ({cli, userId, onNewDMClick}) => {
     // TODO: Immutable DMs replaces a lot of this
-    const dmRoomMap = new DMRoomMap(cli);
     // dmRooms will not include dmRooms that we have been invited into but did not join.
     // Because DMRoomMap runs off account_data[m.direct] which is only set on join of dm room.
     // XXX: we potentially want DMs we have been invited to, to also show up here :L
     // especially as logic below concerns specially if we haven't joined but have been invited
-    const dmRooms = dmRoomMap.getDMRoomsForUserId(userId);
+    const [dmRooms, setDmRooms] = useState(new DMRoomMap(cli).getDMRoomsForUserId(userId));
+
+    const accountDataHandler = useCallback((ev) => {
+        if (ev.getType() === "m.direct") {
+            const dmRoomMap = new DMRoomMap(cli);
+            setDmRooms(dmRoomMap.getDMRoomsForUserId(userId));
+        }
+    }, [cli, userId]);
+
+    useEventListener("accountData", accountDataHandler, cli);
 
     const RoomTile = sdk.getComponent("rooms.RoomTile");
 
@@ -797,8 +806,6 @@ export default class UserInfo extends React.PureComponent {
             cli.on("RoomMember.membership", this.onRoomMemberMembership);
         }
 
-        cli.on("accountData", this.onAccountData);
-
         this._checkIsSynapseAdmin();
     }
 
@@ -817,8 +824,6 @@ export default class UserInfo extends React.PureComponent {
         if (!cli) {
             return;
         }
-
-        cli.removeListener("accountData", this.onAccountData);
 
         if (this.props.room) {
             cli.removeListener("Room", this.onRoom);
@@ -904,12 +909,6 @@ export default class UserInfo extends React.PureComponent {
 
     onRoomMemberMembership = (ev, member) => {
         if (this.props.user.userId === member.userId) this.forceUpdate();
-    };
-
-    onAccountData = (ev) => {
-        if (ev.getType() === 'm.direct') {
-            this.forceUpdate();
-        }
     };
 
     onSynapseDeactivate = async () => {
