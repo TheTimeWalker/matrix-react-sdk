@@ -96,28 +96,27 @@ const DevicesSection = ({cli, userId}) => {
         return () => {
             cancelled = true;
         };
-    }, [userId]);
-
-
-    const onDeviceVerificationChanged = (_userId, device) => {
-        if (_userId === userId) {
-            // no need to re-download the whole thing; just update our copy of the list.
-
-            // Promise.resolve to handle transition from static result to promise; can be removed in future
-            Promise.resolve(cli.getStoredDevicesForUser(userId)).then((devices) => {
-                setDevices(devices);
-            });
-        }
-    };
+    }, [cli, userId]);
 
     // Listen to changes
     useEffect(() => {
+        const onDeviceVerificationChanged = (_userId, device) => {
+            if (_userId === userId) {
+                // no need to re-download the whole thing; just update our copy of the list.
+
+                // Promise.resolve to handle transition from static result to promise; can be removed in future
+                Promise.resolve(cli.getStoredDevicesForUser(userId)).then((devices) => {
+                    setDevices(devices);
+                });
+            }
+        };
+
         cli.on("deviceVerificationChanged", onDeviceVerificationChanged);
         // Handle being unmounted
         return () => {
             cli.removeListener("deviceVerificationChanged", onDeviceVerificationChanged);
         };
-    }, []);
+    }, [cli, userId]);
 
     // TODO
     // const e2eStatus = _getE2EStatus(devices);
@@ -706,6 +705,7 @@ const GroupAdminToolsSection = ({cli, children, groupId, groupMember, startUpdat
                         _t('Failed to withdraw invitation') :
                         _t('Failed to remove user from community'),
                 });
+                console.log(e);
             }).finally(() => {
                 stopUpdating();
             });
@@ -764,10 +764,7 @@ export default class UserInfo extends React.PureComponent {
         this.state = {
             roomCan: null,
             room: null,
-            groupCan: null,
-            synapseCan: {
-                deactivate: false,
-            },
+            isSynapseAdmin: false,
             ignored: cli.isUserIgnored(this.props.user.userId),
             updating: 0,
         };
@@ -800,18 +797,9 @@ export default class UserInfo extends React.PureComponent {
             cli.on("RoomMember.membership", this.onRoomMemberMembership);
         }
 
-        if (this.props.group) {
-            this.state.groupCan = {
-                // TODO
-            };
-            this.state.group = {
-               // TODO
-            };
-        }
-
         cli.on("accountData", this.onAccountData);
 
-        this._checkSynapseAbilities();
+        this._checkIsSynapseAdmin();
     }
 
     componentDidMount() {
@@ -851,21 +839,17 @@ export default class UserInfo extends React.PureComponent {
     //     });
     // }
 
-    async _checkSynapseAbilities() {
-        let deactivate = false;
+    async _checkIsSynapseAdmin() {
+        let isSynapseAdmin = false;
         if (this.context.matrixClient) {
             try {
-                deactivate = await this.context.matrixClient.isSynapseAdministrator();
+                isSynapseAdmin = await this.context.matrixClient.isSynapseAdministrator();
             } catch (e) {
                 console.error(e);
             }
         }
 
-        this.setState({
-            synapseCan: {
-                deactivate,
-            },
-        });
+        this.setState({isSynapseAdmin});
     }
 
     async _updateStateForNewUser(user) {
@@ -874,7 +858,6 @@ export default class UserInfo extends React.PureComponent {
         if (user.roomId) {
             newState = await this._calculateRoomPermissions(user);
         }
-        // TODO if group
 
         this.setState(newState);
     }
@@ -1141,7 +1124,7 @@ export default class UserInfo extends React.PureComponent {
         // We don't need a perfect check here, just something to pass as "probably not our homeserver". If
         // someone does figure out how to bypass this check the worst that happens is an error.
         const sameHomeserver = this.props.user.userId.endsWith(`:${MatrixClientPeg.getHomeserverName()}`);
-        if (this.state.synapseCan.deactivate && sameHomeserver) {
+        if (this.state.isSynapseAdmin && sameHomeserver) {
             synapseDeactivateButton = (
                 <AccessibleButton onClick={this.onSynapseDeactivate} className="mx_MemberInfo_field">
                     {_t("Deactivate user")}
@@ -1173,7 +1156,7 @@ export default class UserInfo extends React.PureComponent {
                     stopUpdating={this.stopUpdating}>
                     { synapseDeactivateButton }
                 </GroupAdminToolsSection>
-            )
+            );
         } else if (synapseDeactivateButton) {
             adminToolsContainer = (
                 <GenericAdminToolsContainer>
@@ -1270,7 +1253,6 @@ export default class UserInfo extends React.PureComponent {
         let devicesSection;
         if (this._enableDevices) {
             if (this.props.room) {
-                // TODO memoize
                 if (cli.isRoomEncrypted(this.props.room.roomId)) {
                     devicesSection = <DevicesSection cli={cli} userId={user.userId} />;
                 } else {
@@ -1279,18 +1261,6 @@ export default class UserInfo extends React.PureComponent {
             } // TODO what to render for GroupMember
         } else {
             devicesSection = _t("This client does not support end-to-end encryption.");
-        }
-
-        let devicesContainer;
-        if (devicesSection) {
-            devicesContainer = (
-                <div className="mx_MemberInfo_container">
-                    <h3>{ _t("Trust & Devices") }</h3>
-                    <div className="mx_MemberInfo_devices">
-                        { devicesSection }
-                    </div>
-                </div>
-            );
         }
 
         return (
@@ -1323,7 +1293,13 @@ export default class UserInfo extends React.PureComponent {
                 </div> }
 
                 <AutoHideScrollbar className="mx_MemberInfo_scrollContainer">
-                    { devicesContainer }
+                    { devicesSection && <div className="mx_MemberInfo_container">
+                        <h3>{ _t("Trust & Devices") }</h3>
+                        <div className="mx_MemberInfo_devices">
+                            { devicesSection }
+                        </div>
+                    </div> }
+
                     { directChatsContainer }
 
                     <UserOptionsSection
