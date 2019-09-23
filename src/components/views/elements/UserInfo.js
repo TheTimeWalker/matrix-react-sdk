@@ -660,7 +660,7 @@ const GroupAdminToolsSection = ({cli, children, groupId, groupMember, startUpdat
         let unmounted = false;
 
         const onGroupStoreUpdated = () => {
-            if (!unmounted) return;
+            if (unmounted) return;
             setIsPrivileged(GroupStore.isUserPrivileged(groupId));
             setIsInvited(GroupStore.getGroupInvitedMembers(groupId).some(
                 (m) => m.userId === groupMember.userId,
@@ -674,7 +674,7 @@ const GroupAdminToolsSection = ({cli, children, groupId, groupMember, startUpdat
             unmounted = true;
             GroupStore.unregisterListener(onGroupStoreUpdated);
         };
-    }, [groupId]);
+    }, [groupId, groupMember.userId]);
 
     if (isPrivileged) {
         const _onKick = async () => {
