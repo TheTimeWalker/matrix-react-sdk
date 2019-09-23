@@ -33,7 +33,6 @@ import { findReadReceiptFromUserId } from '../../../utils/Receipt';
 import AccessibleButton from '../elements/AccessibleButton';
 import SdkConfig from '../../../SdkConfig';
 import SettingsStore from "../../../settings/SettingsStore";
-import MatrixClientPeg from "../../../MatrixClientPeg";
 import {EventTimeline} from "matrix-js-sdk";
 import AutoHideScrollbar from "../../structures/AutoHideScrollbar";
 import * as RoomViewStore from "../../../stores/RoomViewStore";
@@ -248,14 +247,12 @@ const UserOptionsSection = ({cli, member, isIgnored, canInvite}) => {
         );
 
         if (member.roomId) {
-            const room = cli.getRoom(member.roomId);
-            const eventId = room.getEventReadUpTo(member.userId);
-
             const onReadReceiptButton = function() {
+                const room = cli.getRoom(member.roomId);
                 dis.dispatch({
                     action: 'view_room',
                     highlighted: true,
-                    event_id: eventId,
+                    event_id: room.getEventReadUpTo(member.userId),
                     room_id: member.roomId,
                 });
             };
@@ -745,7 +742,6 @@ const GroupMember = PropTypes.shape({
     userId: PropTypes.string.isRequired,
     displayname: PropTypes.string, // XXX: GroupMember objects are inconsistent :((
     avatarUrl: PropTypes.string,
-    isPrivileged: PropTypes.bool,
 });
 
 export default class UserInfo extends React.PureComponent {
@@ -1122,7 +1118,7 @@ export default class UserInfo extends React.PureComponent {
 
         // We don't need a perfect check here, just something to pass as "probably not our homeserver". If
         // someone does figure out how to bypass this check the worst that happens is an error.
-        const sameHomeserver = this.props.user.userId.endsWith(`:${MatrixClientPeg.getHomeserverName()}`);
+        const sameHomeserver = user.userId.endsWith(`:${cli.getHomeserverName()}`);
         if (this.state.isSynapseAdmin && sameHomeserver) {
             synapseDeactivateButton = (
                 <AccessibleButton onClick={this.onSynapseDeactivate} className="mx_MemberInfo_field">
@@ -1235,7 +1231,7 @@ export default class UserInfo extends React.PureComponent {
         const avatarUrl = user.getMxcAvatarUrl ? user.getMxcAvatarUrl() : user.avatarUrl;
         let avatarElement;
         if (avatarUrl) {
-            const httpUrl = this.context.matrixClient.mxcUrlToHttp(avatarUrl, 800, 800);
+            const httpUrl = cli.mxcUrlToHttp(avatarUrl, 800, 800);
             avatarElement = <div className="mx_MemberInfo_avatar" onClick={this.onMemberAvatarClick}>
                 <img src={httpUrl} alt={_t("Profile picture")} />
             </div>;

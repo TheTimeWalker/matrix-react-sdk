@@ -1,12 +1,10 @@
-"use strict";
-
 import sinon from 'sinon';
 import Promise from 'bluebird';
 import React from 'react';
 import PropTypes from 'prop-types';
 import peg from '../src/MatrixClientPeg';
 import dis from '../src/dispatcher';
-import jssdk from 'matrix-js-sdk';
+import jssdk, {Room, RoomMember, RoomState, User} from 'matrix-js-sdk';
 import {makeType} from "../src/utils/TypeUtils";
 import {ValidatedServerConfig} from "../src/utils/AutoDiscoveryUtils";
 import ShallowRenderer from 'react-test-renderer/shallow';
@@ -77,6 +75,7 @@ export function createTestClient() {
         getIdentityServerUrl: sinon.stub(),
         getDomain: sinon.stub().returns("matrix.rog"),
         getUserId: sinon.stub().returns("@userId:matrix.rog"),
+        getHomeserverName: sinon.stub().returns("matrix.rog"),
 
         getPushActionsForEvent: sinon.stub(),
         getRoom: sinon.stub().returns(mkStubRoom()),
@@ -108,7 +107,26 @@ export function createTestClient() {
         getSyncState: () => "SYNCING",
         generateClientSecret: () => "t35tcl1Ent5ECr3T",
         isGuest: () => false,
+        isUserIgnored: sinon.stub().returns(false),
+        isCryptoEnabled: sinon.stub().returns(true),
+        isSynapseAdministrator: sinon.stub().returns(Promise.resolve(false)),
     };
+}
+
+export function createTestRoom(roomId) {
+    const room = sinon.createStubInstance(Room);
+    room.currentState = sinon.createStubInstance(RoomState);
+    room.roomId = roomId;
+    return room;
+}
+
+export function createTestRoomMember(userId, roomId) {
+    const member = sinon.createStubInstance(RoomMember);
+    member.user = sinon.createStubInstance(User);
+    member.userId = userId;
+    member.user.userId = userId;
+    member.roomId = roomId;
+    return member;
 }
 
 /**
